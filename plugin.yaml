@@ -1,0 +1,10 @@
+name: hermes-homie-memory
+version: 0.1.0
+description: "Read-only Homie vault recall for Hermes Agent."
+author: SmokeAlot420
+license: MIT
+provides_tools:
+  - homie_memory_search
+  - homie_memory_context
+  - homie_memory_status
+hooks: []

@@ -1,0 +1,16 @@
+[project]
+name = "hermes-homie-memory"
+version = "0.1.0"
+description = "Read-only Homie vault recall provider for Hermes Agent."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "SmokeAlot420" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
