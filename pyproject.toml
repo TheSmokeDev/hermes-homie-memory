@@ -5,11 +5,23 @@ description = "Read-only Homie vault recall provider for Hermes Agent."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "SmokeAlot420" }]
+authors = [{ name = "TheSmokeDev" }]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Flat module layout: the plugin ships top-level modules (not a package).
+# Hermes loads __init__.py by file path at install time; py_modules here is
+# only so `pip install -e .` can resolve the importable modules for local dev
+# and tests. setuptools cannot auto-discover a flat multi-module layout, so
+# the list is explicit.
+[tool.setuptools]
+py-modules = ["provider", "config", "vault_index", "cli"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -21,10 +21,10 @@ providers should ship out-of-tree.
 
 ## Current release
 
-- Repository: https://github.com/SmokeAlot420/hermes-homie-memory
-- Release: https://github.com/SmokeAlot420/hermes-homie-memory/releases/tag/v0.1.0
+- Repository: https://github.com/TheSmokeDev/hermes-homie-memory
+- Release: https://github.com/TheSmokeDev/hermes-homie-memory/releases/tag/v0.1.0
 - Provider name: `hermes-homie-memory`
-- Install shape: `hermes plugins install SmokeAlot420/hermes-homie-memory`
+- Install shape: `hermes plugins install TheSmokeDev/hermes-homie-memory`
 
 ## What it adds
 

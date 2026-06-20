@@ -20,12 +20,12 @@ now asks new memory backends to ship as standalone plugin repos.
 The provider is inspired by The Homie's public memory substrate: `SOUL.md`,
 `USER.md`, `MEMORY.md`, `GOALS.md`, daily and weekly logs, concept pages, and
 plain Markdown wikilinks. The Homie public framework is here:
-https://github.com/SmokeAlot420/thehomie-framework
+https://github.com/TheSmokeDev/thehomie-framework
 
 ## Install
 
 ```bash
-hermes plugins install SmokeAlot420/hermes-homie-memory
+hermes plugins install TheSmokeDev/hermes-homie-memory
 hermes memory setup
 ```
 
