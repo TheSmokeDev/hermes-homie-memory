@@ -1,5 +1,6 @@
 name: hermes-homie-memory
-version: 0.1.0
+version: 0.2.0
+manifest_version: 1
 description: "Read-only Homie vault recall for Hermes Agent."
 author: TheSmokeDev
 license: MIT

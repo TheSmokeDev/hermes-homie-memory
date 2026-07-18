@@ -20,7 +20,16 @@ now asks new memory backends to ship as standalone plugin repos.
 The provider is inspired by The Homie's public memory substrate: `SOUL.md`,
 `USER.md`, `MEMORY.md`, `GOALS.md`, daily and weekly logs, concept pages, and
 plain Markdown wikilinks. The Homie public framework is here:
-https://github.com/TheSmokeDev/thehomie-framework
+https://github.com/TheSmokeDev/taskchad-os
+
+## Compatibility
+
+Verified against the `hermes-agent` MemoryProvider contract on `main`
+(2026-07-17): `register(ctx)` discovery, `initialize(session_id,
+hermes_home=..., platform=...)` profile-scoped config resolution,
+`prefetch`/`sync_turn` keyword-only signatures, `on_session_switch`,
+`get_config_schema`/`save_config` setup-wizard integration, and
+`register_cli` subcommands. V1 declares `manifest_version: 1`.
 
 ## Install
 
