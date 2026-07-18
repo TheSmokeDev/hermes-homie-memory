@@ -110,7 +110,10 @@ class HomieMemoryProvider(MemoryProvider):
     def initialize(self, session_id: str, **kwargs: Any) -> None:
         self._session_id = session_id
         self._platform = str(kwargs.get("platform", ""))
-        self._config = self._config or resolve_config()
+        # Hermes passes the active HERMES_HOME so profile-scoped installs
+        # resolve their own native config instead of a hardcoded ~/.hermes.
+        hermes_home = kwargs.get("hermes_home") or None
+        self._config = self._config or resolve_config(hermes_home=hermes_home)
         if not self._config.vault_path:
             logger.warning("Homie memory provider has no configured vault_path")
             return
@@ -119,6 +122,22 @@ class HomieMemoryProvider(MemoryProvider):
         except VaultIndexError as exc:
             logger.warning("Homie memory provider unavailable: %s", exc)
             self._index = None
+
+    def on_session_switch(
+        self,
+        new_session_id: str,
+        *,
+        parent_session_id: str = "",
+        reset: bool = False,
+        rewound: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """Track session_id rotation (/resume, /branch, /reset, compression).
+
+        The vault index is session-independent and read-only, so no other
+        state needs to move.
+        """
+        self._session_id = new_session_id
 
     def system_prompt_block(self) -> str:
         if not self._index:

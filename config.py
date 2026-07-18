@@ -89,10 +89,19 @@ def _load_native_config(hermes_home: Path | None = None) -> dict[str, Any]:
         return {}
 
 
-def resolve_config(overrides: Mapping[str, Any] | None = None) -> HomieMemoryConfig:
-    """Resolve provider config without mutating disk."""
+def resolve_config(
+    overrides: Mapping[str, Any] | None = None,
+    *,
+    hermes_home: str | os.PathLike[str] | None = None,
+) -> HomieMemoryConfig:
+    """Resolve provider config without mutating disk.
+
+    ``hermes_home`` is the active HERMES_HOME path when the caller knows it
+    (Hermes passes it to ``MemoryProvider.initialize()`` for profile-scoped
+    storage). Falls back to environment/default resolution when omitted.
+    """
     overrides = overrides or {}
-    hermes_home = _get_hermes_home()
+    hermes_home = Path(hermes_home).expanduser() if hermes_home else _get_hermes_home()
     native = _load_native_config(hermes_home)
     hermes_config = _load_hermes_config()
 
