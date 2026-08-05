@@ -55,3 +55,38 @@ def test_symlinked_files_are_skipped(tmp_path: Path) -> None:
     index = VaultIndex(tmp_path)
 
     assert all(doc.rel_path != "linked.md" for doc in index.documents)
+
+
+def test_a_long_log_does_not_outrank_the_note_that_answers(tmp_path: Path) -> None:
+    """The defect this scorer shipped with: raw term COUNT meant the biggest
+    file won every query. An append-only ops log that mentions a term in
+    passing hundreds of times outscored the short note actually about it — on
+    a real vault, by 6305 to nothing. Length normalization plus term-frequency
+    saturation is what keeps the answer on top.
+    """
+
+    _write(
+        tmp_path / "_ops" / "history.md",
+        "# Operations History\n\n" + ("ran the taskchad sync job. " * 400),
+    )
+    _write(
+        tmp_path / "concepts" / "TASKCHAD-OFFER-LADDER.md",
+        "# TaskChad Offer Ladder\n\nThe taskchad offer ladder is locked: "
+        "chat, voice, website, employee.",
+    )
+
+    results = VaultIndex(tmp_path).search("taskchad offer ladder", limit=5)
+
+    assert results[0].rel_path == "concepts/TASKCHAD-OFFER-LADDER.md"
+
+
+def test_repeated_mentions_saturate(tmp_path: Path) -> None:
+    """The 400th mention must be worth almost nothing more than the 20th —
+    otherwise length normalization alone is still gameable by repetition."""
+
+    _write(tmp_path / "twenty.md", "# Twenty\n\n" + ("alpha filler. " * 20))
+    _write(tmp_path / "many.md", "# Many\n\n" + ("alpha filler. " * 400))
+
+    scores = {r.rel_path: r.score for r in VaultIndex(tmp_path).search("alpha", limit=5)}
+
+    assert scores["many.md"] < scores["twenty.md"] * 2

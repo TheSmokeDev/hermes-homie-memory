@@ -100,6 +100,33 @@ def _snippet(content: str, query_terms: set[str], *, max_chars: int = 360) -> st
     return f"{prefix}{compact[start:end].strip()}{suffix}"
 
 
+#: BM25 term-frequency parameters. ``K1`` sets how fast repeated hits stop
+#: helping; ``B`` how hard length is normalized (1.0 = fully, 0 = not at all).
+#: The standard defaults — nothing about this vault argues for tuning them.
+BM25_K1 = 1.5
+BM25_B = 0.75
+
+
+def _bm25_tf(count: int, doc_len: int, avg_len: float) -> float:
+    """Saturating, length-normalized term frequency.
+
+    Raw ``count`` was the original scorer and it made the LONGEST file win
+    every query: an append-only ops log mentioning a term 400 times outscored
+    the short note that actually answered the question, by orders of magnitude
+    (observed: 6305 vs the real answer, on a live vault). Two properties fix
+    that, and BM25 is the standard formulation of both — the 400th mention is
+    worth almost nothing more than the 20th (saturation), and a hit in a long
+    document counts for less than a hit in a short one (normalization).
+    """
+
+    if count <= 0:
+        return 0.0
+    if avg_len <= 0:
+        return float(count)
+    norm = 1 - BM25_B + BM25_B * (doc_len / avg_len)
+    return (count * (BM25_K1 + 1)) / (count + BM25_K1 * norm)
+
+
 class VaultIndex:
     """Small in-memory index over a plain Markdown Homie vault."""
 
@@ -170,6 +197,15 @@ class VaultIndex:
             for term in query_terms
         }
 
+        # Average length over the SEARCHED set, so a path_prefix scope is
+        # normalized against its own documents rather than the whole vault.
+        lengths = [
+            len(_tokens(doc.content))
+            for doc in self.documents
+            if not prefix or doc.rel_path.startswith(prefix)
+        ]
+        avg_len = (sum(lengths) / len(lengths)) if lengths else 0.0
+
         for doc in self.documents:
             if prefix and not doc.rel_path.startswith(prefix):
                 continue
@@ -177,11 +213,12 @@ class VaultIndex:
             heading_tokens = _tokens(" ".join(doc.headings))
             body_tokens = _tokens(doc.content)
             body_counts = {term: body_tokens.count(term) for term in query_terms}
+            doc_len = len(body_tokens)
 
             score = 0.0
             for term in query_terms:
                 idf = math.log((doc_count + 1) / (1 + document_frequency.get(term, 0))) + 1
-                score += body_counts[term] * idf
+                score += _bm25_tf(body_counts[term], doc_len, avg_len) * idf
                 if term in title_tokens:
                     score += 8 * idf
                 if term in heading_tokens:
