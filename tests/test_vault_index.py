@@ -133,3 +133,30 @@ def test_a_note_that_is_only_frontmatter_still_gets_an_excerpt(tmp_path: Path) -
     results = VaultIndex(tmp_path).search("orphan", limit=1)
 
     assert results and results[0].snippet.strip()
+
+
+def test_truncation_is_reported_not_silent(tmp_path: Path, caplog) -> None:
+    """max_files cut sorted iteration in silence, so the alphabetically-late
+    half of a vault was simply invisible and recall still looked healthy. On
+    a real 2,274-note vault the default hid 1,274 notes, MEMORY.md and
+    SOUL.md among them, for as long as the plugin had existed."""
+
+    for name in ("a", "b", "c", "d"):
+        _write(tmp_path / f"{name}.md", f"# {name}\n\nalpha content.")
+
+    with caplog.at_level("WARNING"):
+        index = VaultIndex(tmp_path, max_files=2)
+
+    assert index.status()["not_indexed"] == 2
+    assert index.status()["max_files"] == 2
+    assert "NOT indexed" in caplog.text
+    assert "c.md" in caplog.text  # names the first thing it dropped
+
+
+def test_an_uncapped_index_makes_no_truncation_claim(tmp_path: Path) -> None:
+    """Absence of the key must mean 'nothing was dropped', so it is only
+    present when the cap actually bit."""
+
+    _write(tmp_path / "only.md", "# Only\n\ncontent.")
+
+    assert "not_indexed" not in VaultIndex(tmp_path, max_files=1000).status()

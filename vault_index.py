@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*")
@@ -65,18 +68,48 @@ def _safe_relative_filter(path_prefix: str | None) -> str:
     return normalized
 
 
-def _iter_markdown_files(root: Path, *, max_files: int) -> Iterable[Path]:
-    count = 0
+def _eligible_markdown_files(root: Path) -> list[Path]:
+    """Every indexable note, in sorted order, before any cap is applied."""
+
+    eligible: list[Path] = []
     for path in sorted(root.rglob("*.md")):
-        if count >= max_files:
-            break
         try:
             if path.is_symlink() or any(part in SKIP_DIRS for part in path.relative_to(root).parts):
                 continue
         except ValueError:
             continue
-        count += 1
-        yield path
+        eligible.append(path)
+    return eligible
+
+
+def _iter_markdown_files(root: Path, *, max_files: int) -> Iterable[Path]:
+    """Notes up to ``max_files``, WARNING when the cap actually bites.
+
+    The cap used to truncate in silence, and because iteration is sorted, it
+    always cut the same way: the alphabetically-early directories consumed the
+    whole budget and everything after them was invisible. On a real 2,274-note
+    vault the default of 1,000 hid 1,274 notes -- including MEMORY.md,
+    USER.md, SOUL.md, every MOC, and the whole of daily/, weekly/, episodes/,
+    research/ and strategy/. Recall looked healthy and simply could not see
+    more than half the vault.
+
+    A cap that changes results has to say so. This one now names the count and
+    the first thing it dropped, so the next person to wonder why a note is
+    unfindable has a log line instead of a mystery.
+    """
+
+    eligible = _eligible_markdown_files(root)
+    if len(eligible) > max_files:
+        dropped = eligible[max_files:]
+        logger.warning(
+            "Vault index truncated at max_files=%d: %d of %d notes are NOT indexed "
+            "(first dropped: %s). Raise max_files to index the whole vault.",
+            max_files,
+            len(dropped),
+            len(eligible),
+            dropped[0].relative_to(root).as_posix(),
+        )
+    return eligible[:max_files]
 
 
 def _title_from_content(path: Path, content: str) -> str:
@@ -172,6 +205,9 @@ class VaultIndex:
 
     def refresh(self) -> None:
         docs: list[VaultDocument] = []
+        # Recorded so status() can REPORT the truncation rather than leaving
+        # it to whoever thinks to read the log.
+        self.eligible_count = len(_eligible_markdown_files(self.root))
         for path in _iter_markdown_files(self.root, max_files=self.max_files):
             try:
                 content = path.read_text(encoding="utf-8", errors="replace")
@@ -195,13 +231,20 @@ class VaultIndex:
 
     def status(self) -> dict[str, object]:
         total_chars = sum(len(doc.content) for doc in self.documents)
-        return {
+        indexed = len(self.documents)
+        eligible = getattr(self, "eligible_count", indexed)
+        status = {
             "vault_path": str(self.root),
-            "documents": len(self.documents),
+            "documents": indexed,
             "total_chars": total_chars,
             "indexed_at": self.indexed_at,
             "read_only": True,
         }
+        if eligible > indexed:
+            # Only present when it is TRUE, so its absence is not a claim.
+            status["not_indexed"] = eligible - indexed
+            status["max_files"] = self.max_files
+        return status
 
     def search(self, query: str, *, limit: int = 5, path_prefix: str | None = None) -> list[SearchResult]:
         query = (query or "").strip()
