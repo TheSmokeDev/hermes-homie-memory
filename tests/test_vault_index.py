@@ -90,3 +90,46 @@ def test_repeated_mentions_saturate(tmp_path: Path) -> None:
     scores = {r.rel_path: r.score for r in VaultIndex(tmp_path).search("alpha", limit=5)}
 
     assert scores["many.md"] < scores["twenty.md"] * 2
+
+
+def test_the_excerpt_skips_frontmatter(tmp_path: Path) -> None:
+    """Auto-compiled pages open with 20+ lines of `related:` wikilinks, so
+    anchoring the excerpt at the first hit quoted the right document at its
+    least meaningful part — and that excerpt is what gets read aloud."""
+
+    _write(
+        tmp_path / "concepts" / "ANGIE.md",
+        "---\n"
+        'aliases: ["Angie"]\n'
+        "related:\n"
+        '  - "[[CANCELLATION]]"\n'
+        '  - "[[RECOVERY]]"\n'
+        "---\n"
+        "# Angie\n\nAngie runs the recovery desk and answers at 562-392-2461.\n",
+    )
+
+    snippet = VaultIndex(tmp_path).search("Angie", limit=1)[0].snippet
+
+    assert "recovery desk" in snippet
+    assert "aliases" not in snippet
+    assert "[[CANCELLATION]]" not in snippet
+
+
+def test_frontmatter_still_counts_for_MATCHING(tmp_path: Path) -> None:
+    """Only the excerpt skips it. Aliases and tags are legitimately how a
+    note gets found, so dropping them from the INDEX would lose hits."""
+
+    _write(
+        tmp_path / "note.md",
+        '---\naliases: ["quicksilver"]\n---\n# Card\n\nThe card details.\n',
+    )
+
+    assert VaultIndex(tmp_path).search("quicksilver", limit=1)
+
+
+def test_a_note_that_is_only_frontmatter_still_gets_an_excerpt(tmp_path: Path) -> None:
+    _write(tmp_path / "stub.md", '---\naliases: ["orphan"]\n---\n')
+
+    results = VaultIndex(tmp_path).search("orphan", limit=1)
+
+    assert results and results[0].snippet.strip()

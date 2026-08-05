@@ -87,8 +87,32 @@ def _title_from_content(path: Path, content: str) -> str:
     return path.stem.replace("-", " ").replace("_", " ").strip() or path.name
 
 
+#: A leading YAML frontmatter block: `---` on its own first line through the
+#: next `---`. Anchored at the start so a horizontal rule mid-document cannot
+#: be mistaken for one.
+FRONTMATTER_RE = re.compile(r"\A---\r?\n.*?\r?\n---[ \t]*\r?\n?", re.DOTALL)
+
+
+def strip_frontmatter(content: str) -> str:
+    """Content without its leading YAML block.
+
+    Excerpts are read aloud by a voice session and shown to a model as
+    evidence, and this vault's auto-compiled pages open with 20+ lines of
+    `related:` wikilinks. Anchoring the excerpt at the first hit therefore
+    returned link soup — the right document, quoted at its least meaningful
+    part. Only the EXCERPT skips it; the frontmatter stays searchable, since
+    aliases and tags there are legitimately how a note gets found.
+    """
+
+    return FRONTMATTER_RE.sub("", content, count=1)
+
+
 def _snippet(content: str, query_terms: set[str], *, max_chars: int = 360) -> str:
-    compact = re.sub(r"\s+", " ", content).strip()
+    compact = re.sub(r"\s+", " ", strip_frontmatter(content)).strip()
+    if not compact:
+        # A note that is nothing but frontmatter still deserves an excerpt
+        # over an empty string.
+        compact = re.sub(r"\s+", " ", content).strip()
     if not compact:
         return ""
     lower = compact.lower()
